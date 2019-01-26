@@ -62,6 +62,9 @@ private slots:
 
     void findWord(const QString & word = nullptr);
 
+protected:
+     void closeEvent(QCloseEvent *event);
+
 
 private:
 

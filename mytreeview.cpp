@@ -4,7 +4,7 @@
 #include <QHeaderView>
 #include "mainwindow.h"
 
-MyTreeView::MyTreeView(QWidget * parent) : QTreeView(parent), deleter(parent), model(new MyModel(this)) {
+MyTreeView::MyTreeView(QWidget * parent) : QTreeView(parent), model(new MyModel(this)), deleter(parent) {
     setUp();
     
 }

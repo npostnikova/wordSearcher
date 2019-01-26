@@ -12,7 +12,6 @@
 #include <QMimeDatabase>
 
 #include "setmanager.h"
-#include "queueworker.h"
 #include "trigramsearcher.h"
 #include "mylistview.h"
 

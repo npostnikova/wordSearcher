@@ -12,6 +12,8 @@
 #include "trigramsearcher.h"
 #include "mylistview.h"
 
+#include <condition_variable>
+
 struct WordSearcher : QObject {
     Q_OBJECT
 public:
@@ -37,6 +39,7 @@ public slots:
 
 signals:
     void unionSet(std::unordered_set<size_t>, bool last);
+
 
     void joinSet(std::unordered_set<size_t>, bool last);
 
@@ -86,7 +89,6 @@ private:
     QString word;
 
     QString dir;
-
 
     std::atomic<bool> cancelled = {false};
 

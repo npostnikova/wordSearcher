@@ -120,14 +120,19 @@ std::set<uint32_t> WordSearcher::getWordTrigrams(std::string const& str) {
 void WordSearcher::findRec(uint32_t trigram, std::string const& word) {
     for (size_t i = 0; i < 256; i++) {
         if (word.length() == 2) {
-            emit joinSet(getFilesWithTrigram((trigram << 8) + i), i == 255);
+            bool b = cancelled.load();
+            emit joinSet(getFilesWithTrigram((trigram << 8) + i), i == 255 || b);
+            if (b) break;
         } else {
+            bool b = cancelled.load();
             for (size_t j = 0; j < 256; j++) {
-                emit joinSet(getFilesWithTrigram((((trigram << 8) + i) << 8) + j), i == 255 && j == 255);
+                emit joinSet(getFilesWithTrigram((((trigram << 8) + i) << 8) + j), i == 255 && j == 255 || b);
+                if (b) goto exit;
             }
         }
-        if (cancelled) break;
     }
+    exit:
+    ;
 }
 
 void WordSearcher::findBadString(std::string const& word) {

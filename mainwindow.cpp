@@ -1,6 +1,5 @@
 #include "mainwindow.h"
 #include "setmanager.h"
-#include "queueworker.h"
 
 #include <QCommonStyle>
 #include <QDir>
@@ -50,6 +49,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->lineEdit, SIGNAL(textEdited(const QString &)), this, SLOT(findWord(const QString &)));
     connect(ui->lineEdit, SIGNAL(returnPressed()), this, SLOT(findWord()));
 
+
+    //connect(this, SIGNAL(closed()), this, SLOT(cancelSearching()));
+
     connect(searcher.get(), SIGNAL(error(Message const&)), this, SLOT(addError(Message const&)));
     connect(searcher.get(), SIGNAL(finishedSearching()), this, SLOT(finishedSearching()));
     qRegisterMetaType<std::unordered_set<size_t>>("std::unordered_set<size_t>");
@@ -80,7 +82,7 @@ void MainWindow::openWithHighlight(const QModelIndex& i) {
 MainWindow::~MainWindow() {
     if (dialog)
         dialog->close();
-    dialog.release();
+    dialog.reset(nullptr);
     cancelSearching();
     thread->quit();
     thread->wait();
@@ -143,6 +145,10 @@ void MainWindow::deleteFile(QString name) {
     }
 }
 
+void MainWindow::closeEvent(QCloseEvent *event) {
+     cancelSearching();
+}
+
 void MainWindow::indexDirectory(QString dirName) {
     qRegisterMetaType<uint32_t>("uint32_t");
     qRegisterMetaType<std::set<uint32_t>>("std::set<uint32_t>"); // not here?
@@ -153,12 +159,13 @@ void MainWindow::indexDirectory(QString dirName) {
     connect(indexer, SIGNAL(sendError(Message)), this, SLOT(addError(Message)));
     QFuture<void> future = QtConcurrent::run(DirectoryIndexer::getTrigrams, indexer, &fileNames, &trigrams);
     QTimer timer;
+
+    setAttribute( Qt::WA_DeleteOnClose );
     while (!future.isFinished()) {
         if (cancelled) {
             indexer->cancelSearching();
         }
         timer.start(1000);
-        if (cancelled)
         ui->progressBar->setMaximum(indexer->getDirSize());
         ui->progressBar->setValue(indexer->getProgress());
         ui->statusLabel->setText(indexer->getDirSize() == 0? "Indexing directory..." : "Progress: " + QString::number(indexer->getProgress()) + "/" + QString::number(indexer->getDirSize()));
@@ -168,18 +175,22 @@ void MainWindow::indexDirectory(QString dirName) {
     cancelled = false;
     thread->quit();
     thread->wait();
+    delete indexer;
 }
 
 void MainWindow::findWord(const QString & word) {
     if (ui->lineEdit->text().isEmpty()) {
-
         ui->duplicatesTreeView->clean();
         return;
     }
     if (searcherThread->isRunning()) {
         emit interruptSearching();
-        while (!searcher->wasCancelled()) {;}
+
+
+        while (!searcher->wasCancelled()) {;
+        }
     }
+
     ui->actionCancel->setEnabled(true);
     ui->duplicatesTreeView->clean();
     cancelled = false;
