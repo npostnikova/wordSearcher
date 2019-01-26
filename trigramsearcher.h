@@ -8,8 +8,6 @@
 #include <iostream>
 #include <QApplication>
 
-#include "sendsetevent.h"
-
 
 struct TrigramSearcher : QObject {
     Q_OBJECT
