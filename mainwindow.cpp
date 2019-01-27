@@ -162,7 +162,7 @@ void MainWindow::indexDirectory(QString dirName) {
     QFuture<void> future = QtConcurrent::run(DirectoryIndexer::getTrigrams, indexer.get(), &fileNames, &trigrams);
     QTimer timer;
 
-    setAttribute( Qt::WA_DeleteOnClose );
+    //setAttribute( Qt::WA_DeleteOnClose );
     while (!future.isFinished()) {
         if (cancelled) {
             indexer->cancelSearching();

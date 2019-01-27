@@ -11,6 +11,9 @@
 #include <QTimer>
 #include <QMimeDatabase>
 
+#include <mutex>
+#include <condition_variable>
+
 #include "setmanager.h"
 #include "trigramsearcher.h"
 #include "mylistview.h"

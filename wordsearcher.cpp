@@ -58,7 +58,7 @@ std::vector<QString> WordSearcher::runSearcher(QString const& word, QString cons
 }
 
 std::vector<QString> WordSearcher::checkContaining(std::unordered_set<size_t> const& indexes, QString const& word) {
-    HashSearcher * hashSearcher = new HashSearcher;
+    std::unique_ptr<HashSearcher>hashSearcher(new HashSearcher);
     std::vector<QString> result;
     for (auto i : indexes) {
         if (cancelled) break;
