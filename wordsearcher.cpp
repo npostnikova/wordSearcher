@@ -20,9 +20,11 @@ WordSearcher::~WordSearcher() {}
 
 std::vector<QString> WordSearcher::runSearcher(QString const& word, QString const& dir, std::unordered_map<uint32_t, std::unordered_set<size_t>> * blocks,
                                                std::map<size_t, QString> * fileNames) {
-        try {
+    try {
         cancelled = false;
+        m.lock();
         successfullyCancelled = false;
+        m.unlock();
 
         this->word = word;
         this->dir = dir;
@@ -43,12 +45,15 @@ std::vector<QString> WordSearcher::runSearcher(QString const& word, QString cons
 
         if (!cancelled) emit finishedSearching();
 
+        m.lock();
         successfullyCancelled = true;
-
+        m.unlock();
+        cv.notify_all();
         return res;
     } catch(...) {
         emit error({"Memory allocation problems", Message::ERROR, "Please, choose smaller directory"});
     }
+    return {};
 
 }
 
@@ -78,7 +83,7 @@ void WordSearcher::findWord(QString const& word) {
     } else {
         findBadString(word.toStdString());
     }
-    while (!worker->isDone()) {;}
+    worker->waitForDone();
 }
 
 void WordSearcher::findGoodString(std::string const& word) {

@@ -69,7 +69,8 @@ public:
 
         indexer->processDirectory(QDir(indexer->dirName));
 
-        while (indexer->isBusy1 || indexer->isBusy2/*indexer->wasSent != indexer->manager->wasSent*/) { ;}
+        indexer->waitOneBusy();
+        //while (indexer->isBusy1 || indexer->isBusy2/*indexer->wasSent != indexer->manager->wasSent*/) { ;}
 
         while (indexer->wasSent > indexer->manager->wasSent) {;}
 
@@ -101,15 +102,30 @@ public slots:
     }
 
     void updateBusy(size_t index) {
+        m.lock();
         if (index == 0) {
-            isBusy1 = false;
-        } else if (index == 1){
-            isBusy2 = false;
+            state = (state == BusyThreads::BOTH) ? BusyThreads::SECOND : BusyThreads::NONE;
+            //isBusy1 = false;
+        } else if (index == 1) {
+            state = (state == BusyThreads::BOTH) ? BusyThreads::FIRST : BusyThreads::NONE;
+            //isBusy2 = false;
         }
+        m.unlock();
+        workers.notify_all();
     }
 
 
 private:
+
+    void waitAllBusy() {
+        std::unique_lock<std::mutex> lock(m);
+        workers.wait(lock, [&] () { return state != BusyThreads::BOTH; });
+    }
+
+    void waitOneBusy() {
+        std::unique_lock<std::mutex> lock(m);
+        workers.wait(lock, [&] () { return state == BusyThreads::NONE; });
+    }
 
     quint64 getDirectorySize(QDir directory) {
         quint64 size = 0;
@@ -155,15 +171,19 @@ private:
     void insertFile(QString const& fileName, size_t fileIndex) {
         fileNames.insert({fileIndex, fileName.right(fileName.size() - dirName.size())});
 
-        while (isBusy1 && isBusy2) {;}
-        if (!isBusy1) {
-            isBusy1 = true;
-            emit s1(fileName, fileIndex);
-        } else if (!isBusy2) {
+        waitAllBusy();
 
-            isBusy2 = true;
+        m.lock();
+        if (state == BusyThreads::NONE || state == BusyThreads::SECOND) {
+            state = (state == BusyThreads::NONE)? BusyThreads::FIRST : BusyThreads::BOTH;//isBusy1 = true;
+            emit s1(fileName, fileIndex);
+        } else if (BusyThreads::BOTH != state) {
+            state = BusyThreads::BOTH;//(state == BusyThreads::NONE)? BusyThreads::FIRST : BusyThreads::BOTH;//isBusy1 = true;
+            //isBusy2 = true;
             emit s2(fileName, fileIndex);
         }
+        m.unlock();
+        //allWorkers.notify_all();
         wasSent++;
 
     }
@@ -177,14 +197,23 @@ signals:
     void getFreeWorker();
 
 private:
-    QMimeDatabase db;
+    enum class BusyThreads {
+        NONE, FIRST, SECOND, BOTH
+    };
 
+    BusyThreads state = BusyThreads::NONE;
+
+    std::condition_variable workers;
+
+    std::mutex m;
+
+    QMimeDatabase db;
 
     size_t threadsNumber = 2;
 
-    std::atomic<bool> isBusy1 = {false};
+    //std::atomic<bool> isBusy1 = {false};
 
-    std::atomic<bool> isBusy2 = {false};
+    //std::atomic<bool> isBusy2 = {false};
 
 
     size_t wasSent = 0;

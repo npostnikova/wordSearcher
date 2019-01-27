@@ -19,6 +19,9 @@
 #include "ui_filehighlighterdialog.h"
 
 #include <QFutureWatcher>
+
+#include <memory>
+
 #include <QTextStream>
 
 
@@ -31,7 +34,7 @@ void MainWindow::openFile(const QModelIndex& index) {
 }
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow), thread(new QThread), searcher(new WordSearcher), searcherThread(new QThread) {
+    : QMainWindow(parent), thread(new QThread), ui(new Ui::MainWindow), searcher(new WordSearcher), searcherThread(new QThread) {
     ui->setupUi(this);
 
     searcher->moveToThread(searcherThread.get());
@@ -83,7 +86,7 @@ MainWindow::~MainWindow() {
     if (dialog)
         dialog->close();
     dialog.reset(nullptr);
-    cancelSearching();
+    //cancelSearching();
     thread->quit();
     thread->wait();
     searcherThread->quit();
@@ -113,7 +116,6 @@ void MainWindow::scanDirectory(QString const& dir) {
     QThread::currentThread()->setPriority(QThread::HighPriority);
 
     indexDirectory(dir);
-
 }
 
 void MainWindow::showAboutDialog() {
@@ -126,7 +128,7 @@ void MainWindow::cancelSearching() {
         emit interruptSearching();
     } else if (searcherThread->isRunning()) {
         emit interruptSearching();
-        while (!searcher->wasCancelled()) {;}
+        searcher->waitForCancelled(); //while (!searcher->wasCancelled()) {;}
     }
 }
 
@@ -153,11 +155,11 @@ void MainWindow::indexDirectory(QString dirName) {
     qRegisterMetaType<uint32_t>("uint32_t");
     qRegisterMetaType<std::set<uint32_t>>("std::set<uint32_t>"); // not here?
 
-    DirectoryIndexer * indexer = new DirectoryIndexer(dirName, thread.get());
+    std::unique_ptr<DirectoryIndexer> indexer(new DirectoryIndexer(dirName, thread.get()));
 
-    connect(this, SIGNAL(interruptSearching()), indexer, SLOT(cancelSearching()), Qt::DirectConnection);
-    connect(indexer, SIGNAL(sendError(Message)), this, SLOT(addError(Message)));
-    QFuture<void> future = QtConcurrent::run(DirectoryIndexer::getTrigrams, indexer, &fileNames, &trigrams);
+    connect(this, SIGNAL(interruptSearching()), indexer.get(), SLOT(cancelSearching()), Qt::DirectConnection);
+    connect(indexer.get(), SIGNAL(sendError(Message)), this, SLOT(addError(Message)));
+    QFuture<void> future = QtConcurrent::run(DirectoryIndexer::getTrigrams, indexer.get(), &fileNames, &trigrams);
     QTimer timer;
 
     setAttribute( Qt::WA_DeleteOnClose );
@@ -175,7 +177,6 @@ void MainWindow::indexDirectory(QString dirName) {
     cancelled = false;
     thread->quit();
     thread->wait();
-    delete indexer;
 }
 
 void MainWindow::findWord(const QString & word) {
@@ -186,17 +187,14 @@ void MainWindow::findWord(const QString & word) {
     if (searcherThread->isRunning()) {
         emit interruptSearching();
 
-
-        while (!searcher->wasCancelled()) {;
-        }
+        searcher->waitForCancelled();
+        //while (!searcher->wasCancelled()) {;}
     }
 
     ui->actionCancel->setEnabled(true);
     ui->duplicatesTreeView->clean();
     cancelled = false;
 
-
     searcherThread->start();
     emit find(word == nullptr ? ui->lineEdit->text() : word, curDir, &trigrams, &fileNames);
-
 }

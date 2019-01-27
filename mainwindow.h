@@ -65,7 +65,6 @@ private slots:
 protected:
      void closeEvent(QCloseEvent *event);
 
-
 private:
 
     std::unique_ptr<QThread> thread;

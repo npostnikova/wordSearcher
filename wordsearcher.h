@@ -12,6 +12,8 @@
 #include "trigramsearcher.h"
 #include "mylistview.h"
 
+#include <mutex>
+
 #include <condition_variable>
 
 struct WordSearcher : QObject {
@@ -24,8 +26,12 @@ public:
 
     void findWord(QString const& word);
 
-    bool wasCancelled() {
-        return successfullyCancelled;
+    void waitForCancelled() {
+        while (!successfullyCancelled) {
+            std::unique_lock<std::mutex> lock(m);
+            cv.wait(lock, [&] () {return successfullyCancelled;});
+        }
+        //return successfullyCancelled;
     }
 
 
@@ -90,9 +96,13 @@ private:
 
     QString dir;
 
+    std::mutex m;
+
+    std::condition_variable cv;
+
     std::atomic<bool> cancelled = {false};
 
-    std::atomic<bool> successfullyCancelled = {false};
+    bool successfullyCancelled = false;
 
 };
 

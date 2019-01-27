@@ -5,6 +5,10 @@
 #include <unordered_set>
 #include <cstdlib>
 #include <QObject>
+
+#include <mutex>
+#include <condition_variable>
+
 #include <iostream>
 
 struct SetWorker : QObject {
@@ -13,6 +17,11 @@ public:
     SetWorker(size_t unionIndex = 0) : unionIndex(unionIndex) {}
 
     ~SetWorker() {}
+
+    void waitForDone() {
+        std::unique_lock<std::mutex> lock(m);
+        checkDone.wait(lock, [&] () { return done;} );
+    }
 
 public slots:
     void joinSets(std::unordered_set<size_t> s, bool last = false) {
@@ -23,7 +32,12 @@ public slots:
                 break;
             setUnion.insert(file);
         }
-        if (last) done = true;
+        if (last) {
+            m.lock();
+            done = true;
+            m.unlock();
+            checkDone.notify_all();
+        }
     }
 
     void intersectSets(std::unordered_set<size_t> s, bool last = false) {
@@ -33,7 +47,13 @@ public slots:
         if (!wasInitialized()) {
             initialized = true;
             std::swap(s, setUnion);
-            if (last) done = true;
+            if (last) {
+                m.lock();
+                done = true;
+                m.unlock();
+                checkDone.notify_all();
+            }
+
             return;
         }
         std::unordered_set<size_t> result;
@@ -45,7 +65,12 @@ public slots:
             }
         }
         std::swap(result, setUnion);
-        if (last) done = true;
+        if (last) {
+            m.lock();
+            done = true;
+            m.unlock();
+            checkDone.notify_all();
+        }
     }
 
     bool isDone() {
@@ -63,7 +88,11 @@ public slots:
     void clean() {
         setUnion.clear();
         cancelled = false;
+
+        m.lock();
         done = false;
+        m.unlock();
+        checkDone.notify_all();
         initialized = false;
     }
 
@@ -87,7 +116,11 @@ private:
 
     bool cancelled = false;
 
-    std::atomic<bool> done = {false};
+    bool done = false;
+
+    std::condition_variable checkDone;
+
+    std::mutex m;
 
     bool initialized = false;
 };
