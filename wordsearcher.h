@@ -27,11 +27,8 @@ public:
     void findWord(QString const& word);
 
     void waitForCancelled() {
-        while (!successfullyCancelled) {
-            std::unique_lock<std::mutex> lock(m);
-            cv.wait(lock, [&] () {return successfullyCancelled;});
-        }
-        //return successfullyCancelled;
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait(lock, [&] () {return successfullyCancelled;});
     }
 
 
