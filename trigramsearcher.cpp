@@ -5,7 +5,7 @@
     TrigramSearcher::TrigramSearcher(size_t index,
                  std::vector<size_t> numbers,
                  std::vector<QString> * names) : searcherIndex(index), numbers(numbers), names(names){}
-    TrigramSearcher::TrigramSearcher(TrigramSearcher const& searcher) : searcherIndex(searcher.searcherIndex), numbers(searcher.numbers), names(searcher.names) {}
+   // TrigramSearcher::TrigramSearcher(TrigramSearcher const& searcher) : searcherIndex(searcher.searcherIndex), numbers(searcher.numbers), names(searcher.names) {}
 
 
     void TrigramSearcher::insertFileSlot(QString fileName, size_t fileIndex) {
